@@ -30,6 +30,7 @@ def ascii_to_edsac(c):  # 文字を EDSAC での文字コードに変換
         r = FIGURES.find(c)
         if r == -1:
             print("Error: invalid character %c", c)
+            raise RuntimeError("Invalid character: %c", c)
     return r
 
 
