@@ -43,6 +43,13 @@ class OneWord:  # 17bit words
         n = common.bits_to_unsigned(self.bits)
         return n
 
+    def get_charcode(self):
+        result = 0
+        for i in self.bits[0:5]:
+            result *= 2
+            result += i
+        return result
+
     def as_real(self):
         """
         >>> a = OneWord.new_from_string("11000000000000000").as_real
@@ -99,13 +106,17 @@ class OneWord:  # 17bit words
         return '{}{}{}{}{} {} {}{}{}{}{}{}{}{}{}{} {}'.format(*self.bits)
 
     def __add__(self, v):
-        return self.__class__.new_from_decimal(self.as_int() + v.as_int())
+        # print("__add__, self.as_int()", self.as_int())
+        # print("__add__, v.as_int()", v.as_int())
+        return self.new_from_decimal(self.as_int() + v.as_int())
 
     def __sub__(self, v):
         return self.new_from_decimal(self.as_int() - v.as_int())
 
     def __mul__(self, v):
-        return self.new_from_decimal((self.as_int() * v.as_int()) << 2)
+        ret = (self.as_int() * v.as_int()) << 2
+        return TwoWords.new_from_decimal(ret)
+# return self.new_from_decimal((self.as_int() * v.as_int()) << 2)
 
     def set(self, v):
         self.bits = v.bits
@@ -167,7 +178,9 @@ class TwoWords(OneWord):
         return f"{self.high.as_bits_string()} {self.padding} {self.low.as_bits_string()}"
 
     def __mul__(self, v):
-        TwoWords.new_from_decimal((self.as_int() * v.as_int()) << 2)
+        ret = (self.as_int() * v.as_int()) << 2
+        return Register.new_from_decimal(ret)
+# TwoWords.new_from_decimal((self.as_int() * v.as_int()) << 2)
 
     def set(self, v):
         self.high = v.high

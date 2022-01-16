@@ -1,5 +1,5 @@
 from words import OneWord, TwoWords, Register
-from common import ascii_to_edsac
+from common import ascii_to_edsac, edsac_to_letter
 
 
 class EDSAC:
@@ -25,6 +25,9 @@ class EDSAC:
         else:
             self.multiplier.high = value
 
+    def display_multipiler(self):
+        print("RS:", self.multiplier)
+
     def get_memory(self, addr, wide=False):
         is_high = addr % 2
         word = self.memory[addr // 2]
@@ -47,6 +50,17 @@ class EDSAC:
             else:
                 w.low = value
 
+    def display_memory(self):
+        which = 0
+        for i in range(34):
+            if which == 0:
+                print("memory[", i, "]", self.memory[i//2].low,
+                      "[", self.memory[i//2].low.as_order(), "]")
+            else:
+                print("memory[", i, "]", self.memory[i//2].high,
+                      "[", self.memory[i//2].high.as_order(), "]")
+            which = which ^ 1
+
     def clear_accumulator(self):
         self.accumulator.__init__()
 
@@ -60,6 +74,9 @@ class EDSAC:
             self.accumulator.high = value
         else:
             self.accumulator.high.high = value
+
+    def display_accumulator(self):
+        print("ABC:", self.accumulator)
 
     def load_initial_order(self):
         for i, line in enumerate(open("initial_order.txt")):
@@ -76,11 +93,16 @@ class EDSAC:
         self.next_index = 0
         while not is_finished:
             is_finished = self.step()
+            # a = input("continue?>")
+            # if a == 'n':
+            #     continue
+            # elif a == 'q':
+            #     break
 
     def step(self):
         instr = self.get_memory(self.next_index)
         op, addr, sl = instr.as_order()
-        print(op, addr, sl)
+        # print(self.next_index, ":", op, addr, sl)
         if (op == "P") & (addr == 0) & (sl == "S"):
             return True
         wide = (sl == "L")
@@ -115,7 +137,11 @@ class EDSAC:
             m = self.get_memory(addr, wide)
             r = self.get_multipiler(wide)
             v = m * r
-            self.set_accumulator(v - a, wide=True)
+            if wide:
+                a = self.accumulator
+            else:
+                a = self.get_accumulator(wide=True)
+            a.set(a - v)
 
         elif op == "T":
             a = self.get_accumulator(wide)
@@ -145,28 +171,25 @@ class EDSAC:
             a = a << count
             self.accumulator.set_from_decimal(a)
 
-        elif op == "E":
+        elif op == "E":  # A >= 0 goto n
             a = self.get_accumulator(wide)
-            if a.bits == 0:
-                self.next_index = addr
+            if a.bits[0] == 0:
+                self.next_index = addr - 1
 
-        elif op == "G":
+        elif op == "G":  # A < 0 goto n
             a = self.get_accumulator(wide)
-            if a.bits == 0:
-                self.next_index = addr
+            if a.bits[0] == 1:
+                self.next_index = addr - 1
 
         elif op == "I":
             c = self.cards[self.next_char]
             self.next_char += 1
             v = ascii_to_edsac(c)
             self.set_memory(addr, OneWord.new_from_decimal(v))
-            print(self.cards)
-            print(self.cards[self.next_char])
-            print("read: ", c, v)
 
         elif op == "O":
             c = self.get_memory(addr)
-            print("%s", c[:5])
+            print(edsac_to_letter(c.get_charcode()))
 
         elif op == "F":
             raise RuntimeError("Invalid opecode")
@@ -188,13 +211,17 @@ class EDSAC:
 
         self.next_index += 1
 
+        # self.display_accumulator()
+        # self.display_multipiler()
+        # self.display_memory()
+
         return False
 
 
 def main():
     edsac = EDSAC()
     edsac.load_initial_order()
-    cards = ["T", "3", "5", "S", "O", "8", "S", "Z", "S"]
+    cards = ["T", "3", "4", "S", "O", "8", "S", "Z", "S"]
     edsac.set_cards(cards)
     edsac.start()
 
