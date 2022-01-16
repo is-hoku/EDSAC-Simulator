@@ -1,172 +1,203 @@
-import common
-import re
+from words import OneWord, TwoWords, Register
+from common import ascii_to_edsac
 
 
-class Edsac:
+class EDSAC:
     def __init__(self):
-        self.memory = 1
+        # 35bits word * 512
+        self.memory = [TwoWords()for i in range(512)]
+        # 71bits accumulator
+        self.accumulator = Register()
+        # 35bits multiplier
+        self.multiplier = TwoWords()
+        self.cards = []
+        self.next_char = 0
+        self.next_index = 0
 
+    def get_multipiler(self, wide=False):
+        if wide:
+            return self.multiplier
+        return self.multiplier.high
 
-class OneWord:  # 17bit words
-
-    bitwidth = 17
-
-    def __init__(self, bits=None):
-        if bits:
-            self.bits = bits
+    def set_multipiler(self, value, wide):
+        if wide:
+            self.multiplier = value
         else:
-            self.bits = [0] * self.bitwidth
+            self.multiplier.high = value
 
-    @staticmethod
-    def new_from_decimal(n):
-        """
-        >>> a = OneWord.new_from_decimal(-255)
-        >>> a.bits
-        [1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 1]
-        """
-        return OneWord(common.int_to_bits(n, 17))
-
-    def set_from_decimal(self, n):
-        """
-        >>> a = OneWord.new_from_decimal(-255)
-        >>> a.set_from_decimal(47)
-        >>> a.bits
-        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 1, 1, 1]
-        """
-        self.bits = common.int_to_bits(n, self.bitwidth)
-        return self
-
-    def as_int(self):
-        """
-        >>> a = OneWord.new_from_string("00000000000101111").as_int
-        47
-        """
-        n = common.bits_to_int(self.bits)
-        return n
-
-    def as_real(self):
-        """
-        >>> a = OneWord.new_from_string("11000000000000000").as_real
-        -0.5
-        """
-        return self.as_int() / float(2 ** (self.bitwidth - 1))
-
-    @staticmethod
-    def new_from_string(s):
-        """
-        >>> a = OneWord.new_from_string("00000000000101111")
-        >>> a.bits
-        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 1, 1, 1]
-        """
-        bits = re.findall("[01]", s)
-        return OneWord([int(i) for i in bits])
-
-    @staticmethod
-    def new_from_order(order):
-        """
-        >>> a = OneWord.new_from_order(('R', 16, 'S'))
-        >>> a.bits
-        [0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0]
-        """
-        op, addr, sl = order
-        if sl == 'S':
-            sl = [0]
+    def get_memory(self, addr, wide=False):
+        is_high = addr % 2
+        word = self.memory[addr // 2]
+        if wide:
+            return word
         else:
-            sl = [1]
-        op_bit = common.int_to_bits(common.ascii_to_edsac(op), 5)
-        unused_bit = [0]
-        addr_bit = common.int_to_bits(addr, 10)
-        result = op_bit + unused_bit + addr_bit + sl
-        return OneWord(result)
+            if is_high:
+                return word.high
+            else:
+                return word.low
 
-    def __repr__(self):
-        return self.as_pretty_bits_string()
+    def set_memory(self, addr, value, wide=False):
+        if wide:
+            self.memory[addr // 2] = value
+        else:
+            is_high = addr % 2
+            w = self.memory[addr // 2]
+            if is_high:
+                w.high = value
+            else:
+                w.low = value
 
-    def as_order(self):
-        """
-        >>> a = OneWord.new_from_order(('R', 16, 'S'))
-        >>> a.as_order
-        ('R', 16, 'S')
-        """
-        op = common.edsac_to_letter(common.bits_to_int(self.bits[:5]))
-        addr = common.bits_to_int(self.bits[6:16])
-        sl = 'S' if self.bits[16] == 0 else 'L'
-        return (op, addr, sl)
+    def clear_accumulator(self):
+        self.accumulator.__init__()
 
-    def as_bits_string(self):
-        return '{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}{}'.format(*self.bits)
+    def get_accumulator(self, wide=False):
+        if wide:
+            return self.accumulator.high
+        return self.accumulator.high.high
 
-    def as_pretty_bits_string(self):
-        return '{}{}{}{}{} {} {}{}{}{}{}{}{}{}{}{} {}'.format(*self.bits)
+    def set_accumulator(self, value, wide=False):
+        if wide:
+            self.accumulator.high = value
+        else:
+            self.accumulator.high.high = value
 
-    def __add__(self, v):
-        return self.new_from_decimal(self.as_int() + v.as_int())
+    def load_initial_order(self):
+        for i, line in enumerate(open("initial_order.txt")):
+            v = OneWord.new_from_string(line)
+            print(v.as_order())
+            self.set_memory(i, v)
 
-    def __sub__(self, v):
-        return self.new_from_decimal(self.as_int() - v.as_int())
+    def set_cards(self, cards):
+        self.cards = cards
+        self.next_char = 0
 
-    def __mul__(self, v):
-        return self.new_from_decimal((self.as_int() * v.as_int()) << 2)
+    def start(self):
+        is_finished = False
+        self.next_index = 0
+        while not is_finished:
+            is_finished = self.step()
 
-    def set(self, v):
-        self.bits = v.bits
+    def step(self):
+        instr = self.get_memory(self.next_index)
+        op, addr, sl = instr.as_order()
+        print(op, addr, sl)
+        if (op == "P") & (addr == 0) & (sl == "S"):
+            return True
+        wide = (sl == "L")
+
+        if op == "A":
+            m = self.get_memory(addr, wide)
+            p = self.get_accumulator(wide)
+            self.set_accumulator(p + m, wide)
+
+        elif op == "S":
+            m = self.get_memory(addr, wide)
+            p = self.get_accumulator(wide)
+            self.set_accumulator(p - m, wide)
+
+        elif op == "H":
+            m = self.get_memory(addr, wide)
+            p = self.get_multipiler(wide)
+            self.set_multipiler(p + m, wide)
+
+        elif op == "V":
+            m = self.get_memory(addr, wide)
+            r = self.get_multipiler(wide)
+            v = m * r
+            if wide:
+                a = self.accumulator  # ABC
+            else:
+                a = self.get_accumulator(wide=True)  # AB
+# self.set_accumulator(a + v, wide=True)
+            a.set(a + v)
+
+        elif op == "N":
+            m = self.get_memory(addr, wide)
+            r = self.get_multipiler(wide)
+            v = m * r
+            self.set_accumulator(v - a, wide=True)
+
+        elif op == "T":
+            a = self.get_accumulator(wide)
+            self.set_memory(addr, a, wide)
+            self.clear_accumulator()
+
+        elif op == "U":
+            a = self.get_accumulator(wide)
+            self.set_memory(addr, a, wide)
+
+        elif op == "C":
+            raise RuntimeError("Invalid opecode")
+
+        elif op == "R":
+            count = 1
+            while instr.bits[17 - count] == 0:
+                count += 1
+            a = self.accumulator.as_int()
+            a = a >> count
+            self.accumulator.set_from_decimal(a)
+
+        elif op == "L":
+            count = 1
+            while instr.bits[17 - count] == 0:
+                count += 1
+            a = self.accumulator.as_int()
+            a = a << count
+            self.accumulator.set_from_decimal(a)
+
+        elif op == "E":
+            a = self.get_accumulator(wide)
+            if a.bits == 0:
+                self.next_index = addr
+
+        elif op == "G":
+            a = self.get_accumulator(wide)
+            if a.bits == 0:
+                self.next_index = addr
+
+        elif op == "I":
+            c = self.cards[self.next_char]
+            self.next_char += 1
+            v = ascii_to_edsac(c)
+            self.set_memory(addr, OneWord.new_from_decimal(v))
+            print(self.cards)
+            print(self.cards[self.next_char])
+            print("read: ", c, v)
+
+        elif op == "O":
+            c = self.get_memory(addr)
+            print("%s", c[:5])
+
+        elif op == "F":
+            raise RuntimeError("Invalid opecode")
+
+        elif op == "X":
+            pass
+
+        elif op == "Y":
+            raise RuntimeError("Invalid opecode")
+
+        elif op == "Z":
+            return True
+
+        elif op == "P":
+            pass
+
+        else:
+            raise RuntimeError("Nothing to do")
+
+        self.next_index += 1
+
+        return False
 
 
-def _empty_storage(bitwidth):
-    if bitwidth == 17:
-        return OneWord()
-    elif bitwidth == 35:
-        return TwoWords()
-    else:
-        raise RuntimeError("expected 17bit or 35bit")
+def main():
+    edsac = EDSAC()
+    edsac.load_initial_order()
+    cards = ["T", "3", "5", "S", "O", "8", "S", "Z", "S"]
+    edsac.set_cards(cards)
+    edsac.start()
 
 
-class TwoWords(OneWord):
-    # 35bit words
-    bitwidth = 35
-    halfwidth = 17
-
-    def __init__(self, high=None, low=None, padding=0):
-        if not high:
-            high = _empty_storage(self.halfwidth)
-        if not low:
-            low = _empty_storage(self.halfwidth)
-
-        self.high = high
-        self.low = low
-        self.padding = padding
-
-    def as_int(self):
-        return (
-            (self.high.as_int() << (self.halfwidth + 1)) +
-            (self.padding << self.halfwidth) + self.low.as_int()
-        )
-
-    @staticmethod
-    def new_from_decimal(n):
-        return TwoWords(common.int_to_bits(n, 35))
-
-    def set_from_decimal(self, n):
-        low = n & ((1 << self.halfwidth) - 1)
-        padding = (n >> self.halfwidth) & 1
-        high = n >> (self.halfwidth + 1)
-        self.high.set_from_decimal(high)
-        self.low.set_from_decimal(low)
-        self.padding = padding
-        return self
-
-    def __repr__(self):
-        return f"{self.high.as_bits_string} {self.padding.as_bits_string} {self.low.as_bits_string}"
-
-    def __mul__(self, v):
-        TwoWords.new_from_decimal((self.as_int() * v.as_int()) << 2)
-
-    def set(self, v):
-        self.high = v.high
-        self.low = v.low
-        self.padding = v.padding
-
-
-class Register(TwoWords):  # 71bit register
-    def __repr__(self):
-        return r"{self.high} {self.padding} {self.low}"
+if __name__ == "__main__":
+    main()

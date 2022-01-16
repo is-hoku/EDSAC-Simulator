@@ -20,6 +20,14 @@ def bits_to_int(bits):  # 2進数(2の補数表現)のビット配列を int に
     return result
 
 
+def bits_to_unsigned(bits):
+    result = 0
+    for i in bits:
+        result *= 2
+        result += i
+    return result
+
+
 LETTERS = 'PQWERTYUIOJ#SZK*.F@D!HNM&LXGABCV'
 FIGURES = '0123456789?#"+(*,$@;!L,.&)/#-?:='
 
@@ -29,7 +37,6 @@ def ascii_to_edsac(c):  # 文字を EDSAC での文字コードに変換
     if r == -1:
         r = FIGURES.find(c)
         if r == -1:
-            print("Error: invalid character %c", c)
             raise RuntimeError("Invalid character: %c", c)
     return r
 
