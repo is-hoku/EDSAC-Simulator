@@ -30,6 +30,11 @@ class EDSAC:
         print("RS:", self.multiplier)
 
     def get_memory(self, addr, wide=False):
+        """
+        memory image
+            [ 1 番地 | 0 番地]
+            [ 3 番地 | 2 番地]
+        """
         is_high = addr % 2
         word = self.memory[addr // 2]
         if wide:
@@ -55,11 +60,11 @@ class EDSAC:
         which = 0
         for i in range(34):
             if which == 0:
-                print("memory[", i, "]", self.memory[i//2].low,
-                      "[", self.memory[i//2].low.as_order(), "]")
+                print(f"memory[{i}]", self.memory[i//2].low,
+                      self.memory[i//2].low.as_order())
             else:
-                print("memory[", i, "]", self.memory[i//2].high,
-                      "[", self.memory[i//2].high.as_order(), "]")
+                print(f"memory[{i}]", self.memory[i//2].high,
+                      self.memory[i//2].high.as_order())
             which = which ^ 1
 
     def clear_accumulator(self):
@@ -134,7 +139,7 @@ class EDSAC:
                 a = self.accumulator  # ABC
             else:
                 a = self.get_accumulator(wide=True)  # AB
-# self.set_accumulator(a + v, wide=True)
+            # self.set_accumulator(a + v, wide=True)
             a.set(a + v)
 
         elif op == "N":
