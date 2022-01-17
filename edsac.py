@@ -1,5 +1,6 @@
 from words import OneWord, TwoWords, Register
 from common import ascii_to_edsac, edsac_to_letter
+import sys
 
 
 class EDSAC:
@@ -81,7 +82,8 @@ class EDSAC:
     def load_initial_order(self):
         for i, line in enumerate(open("initial_order.txt")):
             v = OneWord.new_from_string(line)
-            print(v.as_order())
+            if DEBUG_MODE:
+                print(v.as_order())
             self.set_memory(i, v)
 
     def set_cards(self, cards):
@@ -93,16 +95,18 @@ class EDSAC:
         self.next_index = 0
         while not is_finished:
             is_finished = self.step()
-            # a = input("continue?>")
-            # if a == 'n':
-            #     continue
-            # elif a == 'q':
-            #     break
+            if DEBUG_MODE:
+                a = input("continue?>")
+                if a == 'n':
+                    continue
+                elif a == 'q':
+                    break
 
     def step(self):
         instr = self.get_memory(self.next_index)
         op, addr, sl = instr.as_order()
-        # print(self.next_index, ":", op, addr, sl)
+        if DEBUG_MODE:
+            print(self.next_index, ":", op, addr, sl)
         if (op == "P") & (addr == 0) & (sl == "S"):
             return True
         wide = (sl == "L")
@@ -211,9 +215,10 @@ class EDSAC:
 
         self.next_index += 1
 
-        # self.display_accumulator()
-        # self.display_multipiler()
-        # self.display_memory()
+        if DEBUG_MODE:
+            self.display_accumulator()
+            self.display_multipiler()
+            self.display_memory()
 
         return False
 
@@ -227,4 +232,9 @@ def main():
 
 
 if __name__ == "__main__":
+    DEBUG_MODE = False
+    args = sys.argv
+    if len(args) > 1:
+        if args[1] == "-D":
+            DEBUG_MODE = True
     main()
